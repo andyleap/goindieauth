@@ -50,8 +50,8 @@ type AccessToken struct {
 
 func New() *IndieAuth {
 	ia := &IndieAuth{
-		tokens:    make(map[string]*Token),
-		tokenSync: *new(sync.Mutex),
+		tokens:       make(map[string]*Token),
+		accessTokens: make(map[string]*AccessToken),
 	}
 	return ia
 }
