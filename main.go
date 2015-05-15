@@ -29,7 +29,7 @@ type Token struct {
 	ID           string
 	me           string
 	client_id    string
-	redirect_url string
+	redirect_uri string
 	Response     ResponseType
 	Scope        string
 	state        string
@@ -51,7 +51,7 @@ func (ia *IndieAuth) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 		pass := req.FormValue("password")
 		id := req.FormValue("token")
 		client_id := req.FormValue("client_id")
-		redirect_url := req.FormValue("redirect_url")
+		redirect_uri := req.FormValue("redirect_uri")
 		scope := req.FormValue("scope")
 		if id == "" {
 			buf := make([]byte, 32)
@@ -68,8 +68,8 @@ func (ia *IndieAuth) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 		if client_id != "" {
 			token.client_id = client_id
 		}
-		if redirect_url != "" {
-			token.redirect_url = redirect_url
+		if redirect_uri != "" {
+			token.redirect_uri = redirect_uri
 		}
 		if scope != "" {
 			token.Scope = scope
@@ -78,8 +78,9 @@ func (ia *IndieAuth) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 		if responseType == "code" {
 			token.Response = ResponseCode
 		}
-		if loggedin := ia.CheckLogin(me, pass); loggedin {
-			redirect, _ := url.Parse(token.redirect_url)
+		meparsed, _ := url.Parse(me)
+		if loggedin := ia.CheckLogin(meparsed.Host, pass); loggedin {
+			redirect, _ := url.Parse(token.redirect_uri)
 			redirect.Query().Set("code", token.ID)
 			redirect.Query().Set("state", token.state)
 			redirect.Query().Set("me", me)
@@ -94,10 +95,10 @@ func (ia *IndieAuth) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 	} else if code := req.FormValue("code"); code != "" {
 		id := req.FormValue("token")
 		client_id := req.FormValue("client_id")
-		redirect_url := req.FormValue("redirect_url")
+		redirect_uri := req.FormValue("redirect_uri")
 		state := req.FormValue("state")
 		token := ia.GetToken(id)
-		if token.client_id == client_id && token.redirect_url == redirect_url && token.state == state {
+		if token.client_id == client_id && token.redirect_uri == redirect_uri && token.state == state {
 			values := &url.Values{}
 			values.Set("me", token.me)
 			if token.Response == ResponseCode {
