@@ -4,8 +4,10 @@ package goindieauth
 import (
 	"crypto/rand"
 	"encoding/hex"
+	"fmt"
 	"net/http"
 	"net/url"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -20,6 +22,8 @@ type IndieAuth struct {
 	InfoPage        func(rw http.ResponseWriter)
 	CheckLogin      func(user, password string) bool
 }
+
+var AuthorizationRegex = regexp.MustCompile("Bearer (\\S+)")
 
 type ResponseType int
 
@@ -135,10 +139,10 @@ func (ia *IndieAuth) AuthEndpoint(rw http.ResponseWriter, req *http.Request) {
 func (ia *IndieAuth) TokenEndpoint(rw http.ResponseWriter, req *http.Request) {
 	if token := ia.GetReqAccessToken(req); token != nil {
 		values := &url.Values{}
-		values.Set("me", token.me)
+		values.Set("me", token.Me)
 		values.Set("client_id", token.Client_id)
 		values.Set("scope", strings.Join(token.Scope, " "))
-		values.Set("issued_at", token.Issued.Unix())
+		values.Set("issued_at", fmt.Sprintf("%d", token.Issued.Unix()))
 		values.Set("nonce", "nonce")
 		rw.Header().Set("Content-Type", "application/x-www-form-urlencoded")
 		rw.WriteHeader(http.StatusOK)
