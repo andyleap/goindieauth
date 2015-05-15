@@ -53,6 +53,7 @@ func (ia *IndieAuth) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 		client_id := req.FormValue("client_id")
 		redirect_uri := req.FormValue("redirect_uri")
 		scope := req.FormValue("scope")
+		state := req.FormValue("state")
 		if id == "" {
 			buf := make([]byte, 32)
 			_, err := rand.Read(buf)
@@ -70,6 +71,9 @@ func (ia *IndieAuth) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 		}
 		if redirect_uri != "" {
 			token.redirect_uri = redirect_uri
+		}
+		if state != "" {
+			token.state = state
 		}
 		if scope != "" {
 			token.Scope = scope
