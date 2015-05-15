@@ -81,10 +81,11 @@ func (ia *IndieAuth) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 		meparsed, _ := url.Parse(me)
 		if loggedin := ia.CheckLogin(meparsed.Host, pass); loggedin {
 			redirect, _ := url.Parse(token.redirect_uri)
-			redirect.Query().Set("code", token.ID)
-			redirect.Query().Set("state", token.state)
-			redirect.Query().Set("me", me)
-			redirect.RawQuery = redirect.Query().Encode()
+			query := redirect.Query()
+			query.Set("code", token.ID)
+			query.Set("state", token.state)
+			query.Set("me", me)
+			redirect.RawQuery = query.Encode()
 			token.Authed = true
 			token.Expires = time.Now().Add(10 * time.Minute)
 			ia.SaveToken(token.ID, token)
@@ -99,7 +100,7 @@ func (ia *IndieAuth) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 		redirect_uri := req.FormValue("redirect_uri")
 		state := req.FormValue("state")
 		token := ia.GetToken(id)
-		if token.client_id == client_id && token.redirect_uri == redirect_uri && token.state == state {
+		if token.client_id == client_id && token.redirect_uri == redirect_uri && token.state == state && token.Authed && token.Expires.After(time.Now()) {
 			values := &url.Values{}
 			values.Set("me", token.me)
 			if token.Response == ResponseCode {
