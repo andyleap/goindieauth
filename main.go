@@ -45,6 +45,7 @@ func New() *IndieAuth {
 }
 
 func (ia *IndieAuth) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
+	rw.Header().Set("IndieAuth", "authorization_endpoint")
 	if me := req.FormValue("me"); me != "" {
 		pass := req.FormValue("password")
 		id := req.FormValue("code")
