@@ -84,6 +84,7 @@ func (ia *IndieAuth) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 			redirect.Query().Set("code", token.ID)
 			redirect.Query().Set("state", token.state)
 			redirect.Query().Set("me", me)
+			redirect.RawQuery = redirect.Query().Encode()
 			token.Authed = true
 			token.Expires = time.Now().Add(10 * time.Minute)
 			ia.SaveToken(token.ID, token)
