@@ -3,6 +3,7 @@ package goindieauth
 
 import (
 	"crypto/rand"
+	"encoding/hex"
 	"net/http"
 	"net/url"
 	"sync"
@@ -48,7 +49,7 @@ func (ia *IndieAuth) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 	rw.Header().Set("IndieAuth", "authorization_endpoint")
 	if me := req.FormValue("me"); me != "" {
 		pass := req.FormValue("password")
-		id := req.FormValue("code")
+		id := req.FormValue("token")
 		client_id := req.FormValue("client_id")
 		redirect_url := req.FormValue("redirect_url")
 		scope := req.FormValue("scope")
@@ -60,7 +61,7 @@ func (ia *IndieAuth) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 				rw.Write([]byte("Error generating Token"))
 				return
 			}
-			id = string(buf)
+			id = hex.EncodeToString(buf)
 		}
 		token := ia.GetToken(id)
 		token.me = me
