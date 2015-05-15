@@ -6,16 +6,19 @@ import (
 	"encoding/hex"
 	"net/http"
 	"net/url"
+	"strings"
 	"sync"
 	"time"
 )
 
 type IndieAuth struct {
-	tokens     map[string]*Token
-	tokenSync  sync.Mutex
-	LoginPage  func(rw http.ResponseWriter, user, token, client_id string)
-	InfoPage   func(rw http.ResponseWriter)
-	CheckLogin func(user, password string) bool
+	tokens          map[string]*Token
+	tokenSync       sync.Mutex
+	accessTokens    map[string]*AccessToken
+	accessTokenSync sync.Mutex
+	LoginPage       func(rw http.ResponseWriter, user, token, client_id string)
+	InfoPage        func(rw http.ResponseWriter)
+	CheckLogin      func(user, password string) bool
 }
 
 type ResponseType int
@@ -37,6 +40,14 @@ type Token struct {
 	Expires      time.Time
 }
 
+type AccessToken struct {
+	ID        string
+	Me        string
+	Client_id string
+	Scope     []string
+	Issued    time.Time
+}
+
 func New() *IndieAuth {
 	ia := &IndieAuth{
 		tokens:    make(map[string]*Token),
@@ -45,7 +56,7 @@ func New() *IndieAuth {
 	return ia
 }
 
-func (ia *IndieAuth) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
+func (ia *IndieAuth) AuthEndpoint(rw http.ResponseWriter, req *http.Request) {
 	rw.Header().Set("IndieAuth", "authorization_endpoint")
 	if me := req.FormValue("me"); me != "" {
 		pass := req.FormValue("password")
@@ -120,6 +131,30 @@ func (ia *IndieAuth) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 	}
 }
 
+func (ia *IndieAuth) TokenEndpoint(rw http.ResponseWriter, req *http.Request) {
+	code := req.FormValue("code")
+	client_id := req.FormValue("client_id")
+	redirect_uri := req.FormValue("redirect_uri")
+	state := req.FormValue("state")
+	token := ia.GetToken(code)
+	if token.client_id == client_id && token.redirect_uri == redirect_uri && token.state == state && token.Authed && token.Expires.After(time.Now()) {
+		values := &url.Values{}
+		at := ia.GetAccessToken(token.ID)
+		at.Client_id = token.client_id
+		at.Issued = time.Now()
+		at.Me = token.me
+		at.Scope = strings.Split(token.Scope, " ")
+		ia.SaveAccessToken(token.ID, at)
+		values.Set("me", token.me)
+		values.Set("access_token", token.ID)
+		rw.Header().Set("Content-Type", "application/x-www-form-urlencoded")
+		rw.WriteHeader(http.StatusOK)
+		rw.Write([]byte(values.Encode()))
+		return
+	}
+	rw.WriteHeader(http.StatusBadRequest)
+}
+
 func (ia *IndieAuth) GetToken(id string) *Token {
 	ia.tokenSync.Lock()
 	defer ia.tokenSync.Unlock()
@@ -139,6 +174,30 @@ func (ia *IndieAuth) SaveToken(id string, token *Token) {
 }
 
 func (ia *IndieAuth) DeleteToken(id string) {
+	ia.tokenSync.Lock()
+	defer ia.tokenSync.Unlock()
+	delete(ia.tokens, id)
+}
+
+func (ia *IndieAuth) GetAccessToken(id string) *AccessToken {
+	ia.accessTokenSync.Lock()
+	defer ia.accessTokenSync.Unlock()
+	token, ok := ia.accessTokens[id]
+	if !ok {
+		token = &AccessToken{
+			ID: id,
+		}
+	}
+	return token
+}
+
+func (ia *IndieAuth) SaveAccessToken(id string, token *AccessToken) {
+	ia.accessTokenSync.Lock()
+	defer ia.accessTokenSync.Unlock()
+	ia.accessTokens[id] = token
+}
+
+func (ia *IndieAuth) DeleteAccessToken(id string) {
 	ia.tokenSync.Lock()
 	defer ia.tokenSync.Unlock()
 	delete(ia.tokens, id)
