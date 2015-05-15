@@ -111,7 +111,9 @@ func (ia *IndieAuth) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 				values.Set("scope", token.Scope)
 			}
 			rw.Header().Set("Content-Type", "application/x-www-form-urlencoded")
+			rw.WriteHeader(http.StatusOK)
 			rw.Write([]byte(values.Encode()))
+			return
 		}
 		rw.WriteHeader(http.StatusBadRequest)
 	} else {
