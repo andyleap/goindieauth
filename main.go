@@ -46,6 +46,7 @@ type AccessToken struct {
 	Client_id string
 	Scope     []string
 	Issued    time.Time
+	Authed    bool
 }
 
 func New() *IndieAuth {
@@ -132,6 +133,18 @@ func (ia *IndieAuth) AuthEndpoint(rw http.ResponseWriter, req *http.Request) {
 }
 
 func (ia *IndieAuth) TokenEndpoint(rw http.ResponseWriter, req *http.Request) {
+	if token := ia.GetReqAccessToken(req); token != nil {
+		values := &url.Values{}
+		values.Set("me", token.me)
+		values.Set("client_id", token.Client_id)
+		values.Set("scope", strings.Join(token.Scope, " "))
+		values.Set("issued_at", token.Issued.Unix())
+		values.Set("nonce", "nonce")
+		rw.Header().Set("Content-Type", "application/x-www-form-urlencoded")
+		rw.WriteHeader(http.StatusOK)
+		rw.Write([]byte(values.Encode()))
+		return
+	}
 	code := req.FormValue("code")
 	client_id := req.FormValue("client_id")
 	redirect_uri := req.FormValue("redirect_uri")
@@ -144,9 +157,11 @@ func (ia *IndieAuth) TokenEndpoint(rw http.ResponseWriter, req *http.Request) {
 		at.Issued = time.Now()
 		at.Me = token.me
 		at.Scope = strings.Split(token.Scope, " ")
+		at.Authed = true
 		ia.SaveAccessToken(token.ID, at)
 		values.Set("me", token.me)
 		values.Set("access_token", token.ID)
+		values.Set("scope", token.Scope)
 		rw.Header().Set("Content-Type", "application/x-www-form-urlencoded")
 		rw.WriteHeader(http.StatusOK)
 		rw.Write([]byte(values.Encode()))
@@ -201,4 +216,22 @@ func (ia *IndieAuth) DeleteAccessToken(id string) {
 	ia.tokenSync.Lock()
 	defer ia.tokenSync.Unlock()
 	delete(ia.tokens, id)
+}
+
+func (ia *IndieAuth) GetReqAccessToken(req *http.Request) *AccessToken {
+	for _, header := range req.Header["Authorization"] {
+		matches := AuthorizationRegex.FindStringSubmatch(header)
+		if matches != nil {
+			token := ia.GetAccessToken(matches[1])
+			if !token.Authed {
+				return nil
+			}
+			return token
+		}
+	}
+	token := ia.GetAccessToken(req.FormValue("access_token"))
+	if !token.Authed {
+		return nil
+	}
+	return token
 }
