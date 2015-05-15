@@ -99,11 +99,10 @@ func (ia *IndieAuth) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 		ia.SaveToken(token.ID, token)
 		ia.LoginPage(rw, me, token.ID, client_id)
 	} else if code := req.FormValue("code"); code != "" {
-		id := req.FormValue("token")
 		client_id := req.FormValue("client_id")
 		redirect_uri := req.FormValue("redirect_uri")
 		state := req.FormValue("state")
-		token := ia.GetToken(id)
+		token := ia.GetToken(code)
 		if token.client_id == client_id && token.redirect_uri == redirect_uri && token.state == state && token.Authed && token.Expires.After(time.Now()) {
 			values := &url.Values{}
 			values.Set("me", token.me)
