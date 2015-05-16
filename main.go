@@ -18,9 +18,9 @@ type IndieAuth struct {
 	tokenSync       sync.Mutex
 	accessTokens    map[string]*AccessToken
 	accessTokenSync sync.Mutex
-	LoginPage       func(rw http.ResponseWriter, user, token, client_id string)
-	InfoPage        func(rw http.ResponseWriter)
-	CheckLogin      func(user, password string) bool
+	LoginPage       func(rw http.ResponseWriter, req *http.Request, user, token, client_id string)
+	InfoPage        func(rw http.ResponseWriter, req *http.Request)
+	CheckLogin      func(rw http.ResponseWriter, req *http.Request, user, password string) bool
 }
 
 var AuthorizationRegex = regexp.MustCompile("Bearer (\\S+)")
@@ -99,7 +99,7 @@ func (ia *IndieAuth) AuthEndpoint(rw http.ResponseWriter, req *http.Request) {
 			token.Response = ResponseCode
 		}
 		meparsed, _ := url.Parse(me)
-		if loggedin := ia.CheckLogin(meparsed.Host, pass); loggedin {
+		if loggedin := ia.CheckLogin(rw, req, meparsed.Host, pass); loggedin {
 			redirect, _ := url.Parse(token.redirect_uri)
 			query := redirect.Query()
 			query.Set("code", token.ID)
@@ -113,7 +113,7 @@ func (ia *IndieAuth) AuthEndpoint(rw http.ResponseWriter, req *http.Request) {
 			return
 		}
 		ia.SaveToken(token.ID, token)
-		ia.LoginPage(rw, me, token.ID, client_id)
+		ia.LoginPage(rw, req, me, token.ID, client_id)
 	} else if code := req.FormValue("code"); code != "" {
 		client_id := req.FormValue("client_id")
 		redirect_uri := req.FormValue("redirect_uri")
@@ -132,7 +132,7 @@ func (ia *IndieAuth) AuthEndpoint(rw http.ResponseWriter, req *http.Request) {
 		}
 		rw.WriteHeader(http.StatusBadRequest)
 	} else {
-		ia.InfoPage(rw)
+		ia.InfoPage(rw, req)
 	}
 }
 
